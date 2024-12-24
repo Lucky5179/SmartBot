@@ -1,0 +1,379 @@
+
+var currentState
+
+var tokenBalance
+var claimPercentVal
+var claimTotalVal
+var ethShareVal
+
+var claimPercentText = document.getElementById('claim-percent')
+var claimTotalText = document.getElementById('claim-total')
+var ethShareText = document.getElementById('eth-share')
+
+
+var newTokenBalance
+var newClaimPercentVal
+var newClaimTotalVal
+var newEthShareVal
+
+
+var newClaimPercentText = document.getElementById('new-claim-percent')
+var newClaimTotalText = document.getElementById('new-claim-total')
+var newEthShareText = document.getElementById('new-eth-share')
+
+// Wallet variables
+
+
+//Wallet connect stuff @credits DorekWas
+const getSigner = () => {
+  if(!SCOPE.provider) {
+    return null
+}
+  return SCOPE.provider.getSigner()
+}
+
+
+
+
+/////// DATA FUNCTIONS /////// 
+// Getting data for a specific wallet
+
+
+async function updateDivs() {
+
+
+try {
+const { hash } = await window.SCOPE.writeContract({
+  address: SCOPE.newDivContract,
+  abi: SCOPE.newDivContractABI,
+  functionName: 'updateBalance',
+  args: [SCOPE.address],
+})
+} catch (error) {
+
+  console.log(error)
+}
+
+/*
+
+  const signer = getSigner()
+      if(!signer) {
+        return
+        }
+      SmartBotDivSignR = new ethers.Contract(SCOPE.newDivContract, SCOPE.newDivContractABI, signer)
+        
+      SmartBotSigner.updateBalance(SCOPE.address,{gasLimit: 500000}).then((result) => {
+
+    })
+
+    */
+}
+
+
+
+async function newClaimDividends() {
+
+console.log("button pressed")
+try {
+const { hash } = await window.SCOPE.writeContract({
+  address: SCOPE.newDivContract,
+  abi: SCOPE.newDivContractABI,
+  functionName: 'claim',
+  args: [SCOPE.address,false,0],
+})
+} catch (error) {
+
+  console.log(error)
+}
+
+}
+
+async function newReinvestDividends() {
+  console.log("button pressed reinvest")
+
+  try {
+    const { hash } = await window.SCOPE.writeContract({
+      address: SCOPE.newDivContract,
+      abi: SCOPE.newDivContractABI,
+      functionName: 'claim',
+      args: [SCOPE.address,true,0],
+    })
+  } catch (error) {
+
+    console.log(error)
+  }
+
+      //SmartBotSigner.claim(SCOPE.address,true,0,{gasLimit: 500000}).then((result) => {
+
+
+}
+
+async function claimDividends() {
+
+try {
+const { hash } = await window.SCOPE.writeContract({
+  address: SCOPE.mainTokenContract,
+  abi: SCOPE.mainTokenContractABI,
+  functionName: 'claim',
+  args: [],
+})
+} catch (error) {
+
+  console.log(error)
+}
+
+}
+
+
+function updateData() {
+  getTokenBalance()
+  getClaimData()
+  getNewClaimData()
+  getNewTokenBalance()
+}
+
+async function getTokenBalance() {
+
+window.SCOPE.readContract({
+  address: SCOPE.mainTokenContract,
+  abi: SCOPE.mainTokenContractABI,
+  functionName: "balanceOf",
+  args: [SCOPE.address] 
+}).then((result) =>{
+  tokenBalance = parseFloat(ethers.formatUnits(result.toString(),18))
+  claimPercentText.innerHTML = ((tokenBalance / 1000000) * 100).toFixed(5) + "%"
+
+
+})
+
+
+
+}
+
+
+
+
+async function getNewTokenBalance() {
+
+  window.SCOPE.readContract({
+  address: SCOPE.newDivContract,
+  abi: SCOPE.newDivContractABI,
+  functionName: "balanceOf",
+  args: [SCOPE.address] 
+}).then((result)=>{
+
+newTokenBalance = parseFloat(ethers.formatUnits(result.toString(),18))
+
+
+  window.SCOPE.readContract({
+  address: SCOPE.newDivContract,
+  abi: SCOPE.newDivContractABI,
+  functionName: "totalSupply",
+  args: [] 
+  }).then((result2)=>{
+
+    newClaimPercentText.innerHTML = ((newTokenBalance / convertToEther(result2)) * 100).toFixed(5) + "%"
+  })
+})
+}
+
+
+
+async function getClaimData() {
+
+  window.SCOPE.readContract({
+      address: SCOPE.mainTokenContract,
+      abi: SCOPE.mainTokenContractABI,
+      functionName: 'stats',
+      args: [SCOPE.address],
+    }).then((result)=>{
+                                                  //0 = withdrawableDividends
+      //ethShareText.innerHTML = toFixed(convertToEther(result[0]))
+
+  window.SCOPE.fetchBalance({  address: '0x93314Ee69BF8F943504654f9a8ECed0071526439',
+  chainId: 1,
+      }).then((ethBal)=>{
+        //console.log("ethbal",ethBal)
+  claimTotalText.innerHTML = toFixed(convertToEther(ethBal.value))   
+      })
+    })       
+}
+
+
+
+async function getNewClaimData() {
+
+
+    window.SCOPE.readContract({
+      address: SCOPE.newDivContract,
+      abi: SCOPE.newDivContractABI,
+      functionName: 'accountData',
+      args: [SCOPE.address],
+    }).then((result)=>{
+                                                            //0 = withdrawableDividends       
+      
+      console.log("result to test",result[1])
+      newEthShareText.innerHTML = toFixed(convertToEther(result[1]))
+
+    window.SCOPE.fetchBalance({  address: SCOPE.newDivContract,
+  chainId: 1,
+  }).then((ethBal)=>{
+
+    newClaimTotalText.innerHTML = toFixed(convertToEther(ethBal.value))
+
+    })
+
+  })
+
+}
+
+
+
+$("#update-div").on("click",() => {
+  updateDivs()
+})
+
+$("#claim-btn").on("click",() => {
+	console.log("test")
+	claimDividends()
+})
+
+
+$("#new-claim-btn").on("click",() => {
+  newClaimDividends()
+})
+
+$("#new-reinvest-btn").on("click",() => {
+  newReinvestDividends()
+})
+
+setInterval(() => {
+  checkState()
+}, 1000)
+
+
+function checkState() {
+  if (typeof SCOPE.state != "undefined") {
+      if (currentState == SCOPE.state) {
+      } else {
+        console.log("updating state")
+        currentState = SCOPE.state
+      }
+  } else {
+    currentState = "disconnected"
+  }
+  updateData()
+}
+
+
+
+
+
+
+//Wallet connect stuff
+
+// small utilities to avoid having repeat code
+function walletIsConnected() {
+  if (typeof SCOPE.address !== 'undefined') {
+    return true
+  } else {
+    return false
+  }
+}
+
+function notConnectedAlert() {
+  alert("Please connect wallet first")
+}
+
+
+
+
+function convertToNumber (bigNumber)
+{
+    return parseInt(bigNumber.toString())
+}
+
+function convertToEther (bigNumber)
+{
+    return parseFloat(ethers.formatUnits(bigNumber.toString(), 18))
+}
+
+function convertToWei(ether)
+{
+    return ethers.utils.parseEther(ether.toString()).toString()
+}
+
+function convertToWeiHex (ether)
+{
+    return ethers.utils.parseEther(ether.toString()).toHexString()
+}
+
+function convertToHex (value)
+{
+    return ethers.BigNumber.from(value).toHexString()
+}
+
+function convertHexToAddress (hex)
+{
+    return "0x" + hex.substr(26, 40)
+}
+
+function convertBigNumberToHexAddress (number)
+{
+	let hex = number.toHexString()
+
+	if(!hex)
+	{
+		return number
+	}
+
+	if(!hex.startsWith("0x"))
+	{
+		return number
+	}
+
+	hex = hex.substring(2)
+
+	while(hex.length < 40)
+	{
+		hex = "0" + hex
+	}
+
+	return "0x" + hex
+}
+
+function sleep (ms) 
+{
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+
+function toFixed(x) {
+
+  if(x > 0.1) {
+    return x.toLocaleString('fullwide', {useGrouping:false})
+  }
+
+  x = x.toPrecision(4)
+
+  if (Math.abs(x) < 1.0) {
+    var e = parseInt(x.toString().split('e-')[1]);
+    if (e) {
+        x *= Math.pow(10,e-1);
+        x = '0.' + (new Array(e)).join('0') + x.toString().substring(2);
+    }
+  } else {
+    var e = parseInt(x.toString().split('+')[1]);
+    if (e > 20) {
+        e -= 20;
+        x /= Math.pow(10,e);
+        x += (new Array(e+1)).join('0');
+    }
+  }
+  return x
+}
+
+
+function toNumber(number) {
+  return parseInt(number.toString())
+}
